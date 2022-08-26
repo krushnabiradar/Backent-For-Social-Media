@@ -1,76 +1,56 @@
-const app = require('./app');
-const connectDatabase = require('./config/database');
-const PORT = process.env.PORT || 4000;
+import "dotenv/config";
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import { authRouter } from "./routes/authRouter.js";
+import { userRouter } from "./routes/userRouter.js";
+import { postRouter } from "./routes/postRouter.js";
+import { commentRouter } from "./routes/commentRouter.js";
+import { notificationRouter } from "./routes/notificationsRouter.js";
+import { messageRouter } from "./routes/messageRouter.js";
+// Socket [es6 Module]
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { SocketServer } from "./SocketServer.js";
 
-connectDatabase();
+const app = express();
 
-const server = app.listen(PORT, () => {
-    console.log(`Server Running on port:${PORT}+🎉🎉`);
+const PORT = process.env.PORT || 5000;
+app.use(express.json());
+app.use(cors());
+app.use(cookieParser());
+
+// Connect to db
+const connectToDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("Connected to mongoDB.🎉🎉");
+  } catch (err) {
+    console.log(err.message);
+  }
+};
+connectToDB();
+
+// Socket
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: true,
 });
-
-
-// ============= socket.io ==============
-
-const io = require("socket.io")(server, {
-    // pingTimeout: 60000,
-    cors: {
-        origin: "http://localhost:3000",
-    }
-});
-
-let users = [];
-
-const addUser = (userId, socketId) => {
-    !users.some((user) => user.userId === userId) &&
-        users.push({ userId, socketId });
-}
-
-const removeUser = (socketId) => {
-    users = users.filter((user) => user.socketId !== socketId);
-}
-
-const getUser = (userId) => {
-    return users.find((user) => user.userId === userId);
-}
-
 io.on("connection", (socket) => {
-    console.log("🚀 Someone connected!");
-    // console.log(users);
-
-    // get userId and socketId from client
-    socket.on("addUser", (userId) => {
-        addUser(userId, socket.id);
-        io.emit("getUsers", users);
-    });
-
-    // get and send message
-    socket.on("sendMessage", ({ senderId, receiverId, content }) => {
-
-        const user = getUser(receiverId);
-
-        io.to(user?.socketId).emit("getMessage", {
-            senderId,
-            content,
-        });
-    });
-
-    // typing states
-    socket.on("typing", ({ senderId, receiverId }) => {
-        const user = getUser(receiverId);
-        console.log(user)
-        io.to(user?.socketId).emit("typing", senderId);
-    });
-
-    socket.on("typing stop", ({ senderId, receiverId }) => {
-        const user = getUser(receiverId);
-        io.to(user?.socketId).emit("typing stop", senderId);
-    });
-
-    // user disconnected
-    socket.on("disconnect", () => {
-        console.log("⚠️ Someone disconnected")
-        removeUser(socket.id);
-        io.emit("getUsers", users);
-        // console.log(users);
-    });
+  SocketServer(socket);
 });
+app.get("/", function (request, response) {
+  response.send("Hello, Welcome to Social media🌎🎊");
+});
+
+// All Routes
+app.use("/api", authRouter);
+app.use("/api", userRouter);
+app.use("/api", postRouter);
+app.use("/api", commentRouter);
+app.use("/api", notificationRouter);
+app.use("/api", messageRouter);
+
+
+httpServer.listen(PORT, () => console.log(`Server Running in Port ${PORT}`));

@@ -1,94 +1,81 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+import mongoose from "mongoose";
+const { Schema } = mongoose;
 
-const userSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, "Please enter name"]
+const userSchema = new Schema(
+  {
+    avatar: {
+      type: String,
     },
-    email: {
-        type: String,
-        required: [true, "Please enter email"],
-        unique: [true, "Email already exists"],
+    fullname: {
+      type: String,
+      required: true,
+      trim: true,
+      minLength: 8,
+      maxLength: 22,
     },
     username: {
-        type: String,
-        required: [true, "Please enter username"],
-        minlength: [6, "Username must be of minimum 6 characters"],
-        unique: [true, "Username already exists"],
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      maxlength: 25,
+      minLength: 8,
+      unique: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
     },
     password: {
-        type: String,
-        required: [true, "Please enter password"],
-        minlength: [6, "Password must be of minimum 6 characters"],
-        select: false,
+      type: String,
+      required: true,
+      minLength: 6,
     },
-    avatar: {
-        type: String
-    },
-    bio: {
-        type: String,
-        default: "Hi👋 Welcome To My Profile"
+    role: {
+      type: String,
+      default: "user",
     },
     website: {
-        type: String,
-        trim: true,
+      type: String,
+      default: "",
     },
-    posts: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Post",
-        }
-    ],
-    saved: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Post",
-        }
+    address: {
+      type: String,
+      default: "",
+    },
+    number: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+      maxLength: 150,
+    },
+    following: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "user",
+      },
     ],
     followers: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        }
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "user",
+      },
     ],
-    following: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        }
+    saved: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "user",
+      },
     ],
-    resetPasswordToken: String,
-    resetPasswordExpiry: Date,
-});
+  },
+  {
+    timestamps: true,
+  }
+);
 
-userSchema.pre("save", async function(next) {
-    if(this.isModified("password")) {
-        this.password = await bcrypt.hash(this.password, 10);
-    }
-    next();
-});
-
-userSchema.methods.comparePassword = async function(enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
-}
-
-userSchema.methods.generateToken = function() {
-    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRE
-    });
-}
-
-userSchema.methods.getResetPasswordToken = async function() {
-
-    const resetToken = crypto.randomBytes(20).toString("hex");
-
-    this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-    this.resetPasswordExpiry = Date.now() + 15 * 60 * 1000;
-
-    return resetToken;
-}
-
-module.exports = mongoose.model("User", userSchema);
+export default mongoose.model("user", userSchema);

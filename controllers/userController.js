@@ -1,363 +1,155 @@
-const User = require('../models/userModel');
-const Post = require('../models/postModel');
-const catchAsync = require('../middlewares/catchAsync');
-const sendCookie = require('../utils/sendCookie');
-const ErrorHandler = require('../utils/errorHandler');
-const crypto = require('crypto');
-const deleteFile = require('../utils/deleteFile');
+import UserSchema from "../models/userModel.js";
 
-// Signup User
-exports.signupUser = catchAsync(async (req, res, next) => {
+export const userController = {
+  // Search Users
+  async searchUsers(req, res) {
+    try {
+      const users = await UserSchema.find({
+        username: { $regex: req.query.username },
+      })
+        .limit(11)
+        .select("fullname username avatar");
+      res.json({ users });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
+    }
+  },
 
-    const { name, email, username, password } = req.body;
+  // get user
+  async getUser(req, res) {
+    try {
+      const user = await UserSchema.findById(req.params.id)
+        .select("-password")
+        .populate("followers following", "-password");
+      if (!user) return res.status(404).json({ msg: "User not found" });
+      res.json({ user });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
+    }
+  },
 
-    const user = await User.findOne({
-        $or: [{ email }, { username }]
-    });
-    if (user) {
-        if (user.username === username) {
-            return next(new ErrorHandler("Username already exists", 401));
+  // Update Profile User
+  async updateUser(req, res) {
+    try {
+      const { avatar, fullname, bio, address, number, gender, website } =
+        req.body;
+      if (!fullname)
+        return res.status(4001).json({ msg: "Please Add Your Fullname" });
+
+      await UserSchema.findOneAndUpdate(
+        { _id: req.body._id },
+        {
+          avatar,
+          fullname,
+          bio,
+          address,
+          number,
+          gender,
+          website,
         }
-        return next(new ErrorHandler("Email already exists", 401));
+      );
+      res.json({ msg: "Update Success" });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
+  },
 
-    const newUser = await User.create({
-        name,
-        email,
-        username,
-        password,
-        avatar: req.file.filename
-    })
+  // add Followers and Following
+  async follow(req, res) {
+    // *Info get get user from request   user === Auth middleware*
+    try {
+      // check followed user
+      const user = await UserSchema.find({
+        _id: req.params.id,
+        followers: req.user._id,
+      });
+      if (user.length > 0) {
+        return res.status(500).json({ msg: "Your followed this user ." });
+      }
 
-    sendCookie(newUser, 201, res);
-});
-
-// Login User
-exports.loginUser = catchAsync(async (req, res, next) => {
-
-    const { userId, password } = req.body;
-
-    const user = await User.findOne({
-        $or: [{ email: userId }, { username: userId }]
-    }).select("+password");
-
-    if (!user) {
-        return next(new ErrorHandler("User doesn't exist", 401));
-    }
-
-    const isPasswordMatched = await user.comparePassword(password);
-
-    if (!isPasswordMatched) {
-        return next(new ErrorHandler("Password doesn't match", 401));
-    }
-
-    sendCookie(user, 201, res);
-});
-
-// Logout User
-exports.logoutUser = catchAsync(async (req, res, next) => {
-    res.cookie('token', null, {
-        expires: new Date(Date.now()),
-        httpOnly: true,
-    });
-
-    res.status(200).json({
-        success: true,
-        message: "Logged Out",
-    });
-});
-
-// Get User Details --Logged In User
-exports.getAccountDetails = catchAsync(async (req, res, next) => {
-
-    const user = await User.findById(req.user._id).populate({
-        path: 'posts',
-        populate: {
-            path: 'postedBy'
-        }
-    });
-
-    res.status(200).json({
-        success: true,
-        user,
-    });
-});
-
-// Get User Details
-exports.getUserDetails = catchAsync(async (req, res, next) => {
-
-    const user = await User.findOne({ username: req.params.username }).populate("followers following").populate({
-        path: 'posts',
-        populate: {
-            path: 'comments',
-            populate: {
-                path: 'user'
-            }
+      // Add Followers
+      await UserSchema.findOneAndUpdate(
+        { _id: req.params.id },
+        {
+          $push: { followers: req.user._id },
         },
-    }).populate({
-        path: 'posts',
-        populate: {
-            path: 'postedBy'
-        }
-    }).populate({
-        path: 'saved',
-        populate: {
-            path: 'comments',
-            populate: {
-                path: 'user'
-            }
+        { new: true }
+      );
+      // Add Following
+
+      const addFollowing = await UserSchema.findOneAndUpdate(
+        { _id: req.user._id },
+        {
+          $push: { following: req.params.id },
         },
-    }).populate({
-        path: 'saved',
-        populate: {
-            path: 'postedBy'
-        }
-    })
+        { new: true }
+      );
 
-    res.status(200).json({
-        success: true,
-        user,
-    });
-});
-
-// Get User Details By Id
-exports.getUserDetailsById = catchAsync(async (req, res, next) => {
-
-    const user = await User.findById(req.params.id)
-
-    res.status(200).json({
-        success: true,
-        user,
-    });
-});
-
-// Get All Users
-exports.getAllUsers = catchAsync(async (req, res, next) => {
-
-    const users = await User.find();
-
-    const suggestedUsers = users.filter((u) => !u.followers.includes(req.user._id) && u._id.toString() !== req.user._id.toString()).slice(0, 5).reverse()
-
-    res.status(200).json({
-        success: true,
-        users: suggestedUsers,
-    });
-});
-
-// Update Password
-exports.updatePassword = catchAsync(async (req, res, next) => {
-
-    const { oldPassword, newPassword } = req.body;
-
-    const user = await User.findById(req.user._id).select("+password");
-
-    const isPasswordMatched = await user.comparePassword(oldPassword);
-
-    if (!isPasswordMatched) {
-        return next(new ErrorHandler("Invalid Old Password", 401));
+      res.status(200).json({ msg: "You follow this user now" });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
+  },
 
-    user.password = newPassword;
-    await user.save();
-    sendCookie(user, 201, res);
-});
+  // remove Followers and following
+  async unFollow(req, res) {
+    try {
+      // Remove Followers
+      const removeFollow = await UserSchema.findOneAndUpdate(
+        { _id: req.params.id },
+        {
+          $pull: { followers: req.user._id },
+        },
+        { new: true }
+      );
+      // Remove Following
+      const removeFollowing = await UserSchema.findOneAndUpdate(
+        { _id: req.user._id },
+        {
+          $pull: { following: req.params.id },
+        },
+        { new: true }
+      );
 
-// Update Profile
-exports.updateProfile = catchAsync(async (req, res, next) => {
-
-    const { name, username, website, bio, email } = req.body;
-
-    const newUserData = {
-        name,
-        username,
-        website,
-        bio,
-        email,
+      res.status(200).json({ msg: "You unfollow this user now" });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
+  },
 
-    const userExists = await User.findOne({
-        $or: [{ email }, { username }]
-    });
-    if (userExists && userExists._id.toString() !== req.user._id.toString()) {
-        return next(new ErrorHandler("User Already Exists", 404));
+  // Get Suggestion User Not  => Following and Followers
+  async suggestionUser(req, res) {
+    try {
+      const allFollowing = [...req.user.following, req.user._id];
+      const num = 5;
+      // Get All User Not Following
+      const users = await UserSchema.aggregate([
+        { $match: { _id: { $nin: allFollowing } } }, // dont following
+        { $sample: { size: num } }, // return size of num  (Randomly)
+        {
+          $lookup: {
+            from: "users",
+            localField: "followers",
+            foreignField: "_id",
+            as: "followers",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "following",
+            foreignField: "_id",
+            as: "following",
+          },
+        },
+      ]).project("-password");
+
+      return res.json({
+        users,
+        usersCount: users.length,
+      });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
-
-    if (req.body.avatar !== "") {
-        const user = await User.findById(req.user._id);
-
-        await deleteFile('profiles/', user.avatar);
-        newUserData.avatar = req.file.filename
-    }
-
-    await User.findByIdAndUpdate(req.user._id, newUserData, {
-        new: true,
-        runValidators: true,
-        useFindAndModify: true,
-    });
-
-    res.status(200).json({
-        success: true,
-    });
-});
-
-
-// Delete Profile ⚠️⚠️
-exports.deleteProfile = catchAsync(async (req, res, next) => {
-
-    const user = await User.findById(req.user._id);
-    const posts = user.posts;
-    const followers = user.followers;
-    const following = user.following;
-    const userId = user._id;
-
-    // delete post & user images ⚠️⚠️
-
-    await user.remove();
-
-    res.cookie('token', null, {
-        expires: new Date(Date.now()),
-        httpOnly: true,
-    });
-
-    for (let i = 0; i < posts.length; i++) {
-        const post = await Post.findById(posts[i]);
-        await post.remove();
-    }
-
-    for (let i = 0; i < followers.length; i++) {
-        const follower = await User.findById(followers[i]);
-
-        const index = follower.following.indexOf(userId);
-        follower.following.splice(index, 1);
-        await follower.save();
-    }
-
-    for (let i = 0; i < following.length; i++) {
-        const follows = await User.findById(following[i]);
-
-        const index = follows.followers.indexOf(userId);
-        follows.followers.splice(index, 1);
-        await follows.save();
-    }
-
-    res.status(200).json({
-        success: true,
-        message: "Profile Deleted"
-    });
-});
-
-// Follow | Unfollow User
-exports.followUser = catchAsync(async (req, res, next) => {
-
-    const userToFollow = await User.findById(req.params.id);
-    const loggedInUser = await User.findById(req.user._id);
-
-    if (!userToFollow) {
-        return next(new ErrorHandler("User Not Found", 404));
-    }
-
-    if (loggedInUser.following.includes(userToFollow._id)) {
-
-        const followingIndex = loggedInUser.following.indexOf(userToFollow._id);
-        const followerIndex = userToFollow.followers.indexOf(loggedInUser._id);
-
-        loggedInUser.following.splice(followingIndex, 1);
-        userToFollow.followers.splice(followerIndex, 1);
-
-        await loggedInUser.save();
-        await userToFollow.save();
-
-        return res.status(200).json({
-            success: true,
-            message: "User Unfollowed"
-        });
-    } else {
-        loggedInUser.following.push(userToFollow._id);
-        userToFollow.followers.push(loggedInUser._id);
-        await loggedInUser.save();
-        await userToFollow.save();
-
-        res.status(200).json({
-            success: true,
-            message: "User Followed",
-        });
-    }
-});
-
-// Reset Password
-exports.resetPassword = catchAsync(async (req, res, next) => {
-
-    const resetPasswordToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
-
-    const user = await User.findOne({
-        resetPasswordToken,
-        resetPasswordExpiry: { $gt: Date.now() }
-    });
-
-    if (!user) {
-        return next(new ErrorHandler("User Not Found", 404));
-    }
-
-    user.password = req.body.password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-
-    await user.save();
-    sendCookie(user, 200, res);
-});
-
-// User Search
-exports.searchUsers = catchAsync(async (req, res, next) => {
-
-    if (req.query.keyword) {
-        const users = await User.find({
-            $or: [
-                {
-                    name: {
-                        $regex: req.query.keyword,
-                        $options: "i",
-                    },
-                },
-                {
-                    username: {
-                        $regex: req.query.keyword,
-                        $options: "i",
-                    }
-                }
-            ]
-        });
-
-        res.status(200).json({
-            success: true,
-            users,
-        });
-    }
-});
-
-// User Search -- Atlas Search
-// exports.searchUsers = catchAsync(async (req, res, next) => {
-
-//     if (req.query.keyword) {
-//         const users = await User.aggregate(
-//             [
-//                 {
-//                     $search: {
-//                         index: 'usersearch',
-//                         text: {
-//                             query: req.query.keyword,
-//                             path: ['name', 'username'],
-//                             fuzzy: {
-//                                 maxEdits: 2.0
-//                             }
-//                         }
-//                     }
-//                 }
-//             ]
-//         )
-
-//         res.status(200).json({
-//             success: true,
-//             users,
-//         });
-//     }
-// });
+  },
+};
