@@ -1,14 +1,14 @@
+import cookieParser from "cookie-parser";
+import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
-import cookieParser from "cookie-parser";
 import { authRouter } from "./routes/authRouter.js";
-import { userRouter } from "./routes/userRouter.js";
-import { postRouter } from "./routes/postRouter.js";
 import { commentRouter } from "./routes/commentRouter.js";
-import { notificationRouter } from "./routes/notificationsRouter.js";
 import { messageRouter } from "./routes/messageRouter.js";
+import { notificationRouter } from "./routes/notificationsRouter.js";
+import { postRouter } from "./routes/postRouter.js";
+import { userRouter } from "./routes/userRouter.js";
 // Socket [es6 Module]
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -51,6 +51,5 @@ app.use("/api", postRouter);
 app.use("/api", commentRouter);
 app.use("/api", notificationRouter);
 app.use("/api", messageRouter);
-
 
 httpServer.listen(PORT, () => console.log(`Server Running in Port ${PORT}`));
