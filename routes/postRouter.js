@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { postController } from "../controllers/postController.js";
+import { authMiddleware } from "../middlewares/authMiddleware.js";
 const {
   createPost,
   getPosts,
@@ -23,14 +23,14 @@ postRouter
 
 postRouter
   .route("/post/:id")
-  .patch(authMiddleware, updatePost)
+  .put(authMiddleware, updatePost)
   .get(authMiddleware, getDetailsPost)
   .delete(authMiddleware, deletePost);
 
-postRouter.patch("/post/:id/like", authMiddleware, likePost);
-postRouter.patch("/post/:id/unliked", authMiddleware, unLikePost);
+postRouter.put("/post/:id/like", authMiddleware, likePost);
+postRouter.put("/post/:id/unliked", authMiddleware, unLikePost);
 postRouter.get("/posts_user/:id", authMiddleware, getPostsUser);
 postRouter.get("/posts_explore", authMiddleware, getPostsExplorePage);
-postRouter.patch("/save_post/:id", authMiddleware, savePost);
-postRouter.patch("/unsave_post/:id", authMiddleware, unSavePost);
+postRouter.put("/save_post/:id", authMiddleware, savePost);
+postRouter.put("/unsave_post/:id", authMiddleware, unSavePost);
 postRouter.get("/get_posts_save", authMiddleware, getSavePosts);

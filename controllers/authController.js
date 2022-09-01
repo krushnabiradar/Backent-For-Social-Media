@@ -53,7 +53,7 @@ export const authController = {
       // Save User in database
       await newUser.save();
       res.json({
-        msg: "Rejester Success ",
+        msg: "Register Success ",
         AccessToken,
         user: {
           ...newUser._doc,
@@ -78,7 +78,7 @@ export const authController = {
       if (!userFound) {
         return res
           .status(401)
-          .json({ msg: "This Email Does not exist Please Regester" });
+          .json({ msg: "This Email Does not exist Please Register" });
       }
 
       // return real password

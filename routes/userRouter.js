@@ -6,7 +6,7 @@ const { searchUsers, getUser, updateUser, follow, unFollow, suggestionUser } =
 export const userRouter = express.Router();
 userRouter.get("/search", authMiddleware, searchUsers);
 userRouter.get("/user/:id", authMiddleware, getUser);
-userRouter.patch("/user", authMiddleware, updateUser);
-userRouter.patch("/user/:id/follow", authMiddleware, follow);
-userRouter.patch("/user/:id/unfollow", authMiddleware, unFollow);
+userRouter.put("/user", authMiddleware, updateUser);
+userRouter.put("/user/:id/follow", authMiddleware, follow);
+userRouter.put("/user/:id/unfollow", authMiddleware, unFollow);
 userRouter.get("/suggestionUser", authMiddleware, suggestionUser);

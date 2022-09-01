@@ -17,7 +17,7 @@ export const postController = {
       });
       await newPost.save();
       res.status(201).json({
-        msg: "Created Post!",
+        msg: "Post Created!",
         newPost: {
           ...newPost._doc,
           user: req.user,

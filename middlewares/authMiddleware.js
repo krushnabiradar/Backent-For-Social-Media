@@ -8,7 +8,7 @@ export const authMiddleware = async (req, res, next) => {
       return res.status(401).send({ msg: "invalid Authenticaion." });
     const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN);
     // check token is valid or no
-    if (!decoded) return res.status(401).json({ msg: "invalid Authenticaion" });
+    if (!decoded) return res.status(401).json({ msg: "invalid Authenticaion..." });
     // get user from database
     const user = await UserSchema.findOne({ _id: decoded.id });
     // send user in request
