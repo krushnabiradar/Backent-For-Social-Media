@@ -40,9 +40,9 @@ const io = new Server(httpServer, {
 io.on("connection", (socket) => {
   SocketServer(socket);
 });
-// app.get("/", function (request, response) {
-//   response.send("Hello, Welcome to Social media🌎🎊");
-// });
+app.get("/", function (request, response) {
+  response.send("Hello, Welcome to Social media🌎🎊");
+});
 
 // All Routes
 app.use("/api", authRouter);

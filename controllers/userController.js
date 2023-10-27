@@ -64,7 +64,7 @@ export const userController = {
         followers: req.user._id,
       });
       if (user.length > 0) {
-        return res.status(500).json({ msg: "Your followed this user ." });
+        return res.status(500).json({ msg: "You followed this user ." });
       }
 
       // Add Followers

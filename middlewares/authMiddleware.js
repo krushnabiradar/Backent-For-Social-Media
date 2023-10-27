@@ -1,5 +1,6 @@
 import UserSchema from "../models/userModel.js";
 import jwt from "jsonwebtoken";
+
 // get Access Token and verify them
 export const authMiddleware = async (req, res, next) => {
   try {

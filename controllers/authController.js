@@ -7,7 +7,7 @@ export const authController = {
     try {
       const { fullname, username, password, email } = req.body;
       // remove white space and return username lowercase
-      let newUserName = username.replace(/ /g, "");
+      let newUserName = username
       // check username in database or no
       const usernameHere = await userSchema.findOne({ username, newUserName });
       if (usernameHere) {
@@ -163,3 +163,8 @@ const createAccessToken = (payload) => {
 const refreshAccessToken = (payload) => {
   return jwt.sign(payload, process.env.REFRESH_TOKEN, { expiresIn: "7d" }); // 30 days
 };
+
+
+
+
+
